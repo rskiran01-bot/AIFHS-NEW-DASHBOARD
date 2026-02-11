@@ -41,9 +41,9 @@ st.subheader(f"{indicator} by State/UT")
 
 plot_df = filtered_df[[area_col, indicator]].dropna()
 
-fig, ax = plt.subplots()
+
 ax.bar(plot_df[area_col], plot_df[indicator])
-plt.xticks(rotation=90)
+
 ax.set_ylabel(indicator)
 st.pyplot(fig)
 
