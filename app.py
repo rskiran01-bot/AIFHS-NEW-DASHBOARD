@@ -1,93 +1,76 @@
-import streamlit as st
+mport streamlit as st
 import pandas as pd
-import plotly.express as px
+import matplotlib.pyplot as plt
 
-# Page configuration
-st.set_page_config(
-    page_title="Single-Use Plastics Dashboard",
-    layout="wide"
+st.set_page_config(page_title="NFHS-4 Dashboard", layout="wide")
+
+st.title("NFHS-4 India Health Dashboard")
+
+# Load data
+@st.cache_data
+def load_data():
+    file_path = "All India National Family Health Survey4.xlsx"
+    df = pd.read_excel(file_path, sheet_name="in")
+    df = df.dropna(how="all")
+    df.columns = df.columns.str.strip()
+    return df
+
+df = load_data()
+
+# First column assumed as State/UT
+area_col = df.columns[0]
+
+# Sidebar filters
+st.sidebar.header("Filters")
+
+areas = df[area_col].dropna().unique()
+selected_areas = st.sidebar.multiselect(
+    "Select State/UT",
+    areas,
+    default=areas[:5]
 )
 
-st.title("🌍 Elimination of Single-Use Plastics (SUP)")
-st.subheader("Global | India | Telangana – Best Practices & Interventions")
+filtered_df = df[df[area_col].isin(selected_areas)]
 
-# Upload data
-uploaded_file = st.file_uploader(
-    "Upload SUP Best Practices Data (Excel or CSV)",
-    type=["xlsx", "csv"]
-)
+# Indicator selection
+numeric_cols = filtered_df.select_dtypes(include="number").columns
+indicator = st.sidebar.selectbox("Select Indicator", numeric_cols)
 
-if uploaded_file:
-    if uploaded_file.name.endswith(".csv"):
-        df = pd.read_csv(uploaded_file)
-    else:
-        df = pd.read_excel(uploaded_file)
+# Chart
+st.subheader(f"{indicator} by State/UT")
 
-    st.success("Data loaded successfully!")
+plot_df = filtered_df[[area_col, indicator]].dropna()
 
-    # Sidebar filters
-    st.sidebar.header("🔎 Filters")
-    level = st.sidebar.multiselect(
-        "Select Level",
-        options=df["Level"].unique(),
-        default=df["Level"].unique()
-    )
+fig, ax = plt.subplots()
+ax.bar(plot_df[area_col], plot_df[indicator])
+plt.xticks(rotation=90)
+ax.set_ylabel(indicator)
+st.pyplot(fig)
 
-    practice = st.sidebar.multiselect(
-        "Select Practice Type",
-        options=df["Practice_Type"].unique(),
-        default=df["Practice_Type"].unique()
-    )
+# Summary
+col1, col2, col3 = st.columns(3)
 
-    filtered_df = df[
-        (df["Level"].isin(level)) &
-        (df["Practice_Type"].isin(practice))
-    ]
+if not plot_df.empty:
+    col1.metric("Average", round(plot_df[indicator].mean(), 2))
+    col2.metric("Max", round(plot_df[indicator].max(), 2))
+    col3.metric("Min", round(plot_df[indicator].min(), 2))
 
-    # KPIs
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Total Practices", len(filtered_df))
-    col2.metric("Countries / States", filtered_df["Country/State"].nunique())
-    col3.metric("Practice Types", filtered_df["Practice_Type"].nunique())
+# Top/Bottom
+st.subheader("Top & Bottom States")
 
-    st.divider()
+top_n = st.slider("Select Top/Bottom N", 3, 10, 5)
+rank_df = plot_df.sort_values(by=indicator, ascending=False)
 
-    # Bar chart – Practices by Level
-    fig1 = px.bar(
-        filtered_df,
-        x="Level",
-        color="Practice_Type",
-        title="Practices by Governance Level",
-        text_auto=True
-    )
-    st.plotly_chart(fig1, use_container_width=True)
+col4, col5 = st.columns(2)
 
-    # Bar chart – Practices by Region/State
-    fig2 = px.bar(
-        filtered_df,
-        x="Country/State",
-        color="Practice_Type",
-        title="Practices by Country / State",
-        text_auto=True
-    )
-    st.plotly_chart(fig2, use_container_width=True)
+with col4:
+    st.write("Top States")
+    st.dataframe(rank_df.head(top_n))
 
-    # Table view
-    st.subheader("📋 Detailed Best Practices")
-    st.dataframe(filtered_df, use_container_width=True)
+with col5:
+    st.write("Bottom States")
+    st.dataframe(rank_df.tail(top_n))
 
-    # Telangana Focus Section
-    st.divider()
-    st.subheader("📍 Telangana – Actionable Insights")
-
-    telangana_df = filtered_df[
-        filtered_df["Country/State"].str.contains("Telangana", case=False, na=False)
-    ]
-
-    if not telangana_df.empty:
-        st.dataframe(telangana_df, use_container_width=True)
-    else:
-        st.info("No Telangana-specific records in current filter.")
-
-else:
-    st.info("👈 Upload a SUP best practices dataset to begin.")
+# Raw data
+st.subheader("Raw Data")
+st.dataframe(filtered_df)
