@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
+import matplotlib.pyplot as plt
 
 st.set_page_config(page_title="NFHS-4 Dashboard", layout="wide")
 
@@ -41,9 +41,9 @@ st.subheader(f"{indicator} by State/UT")
 
 plot_df = filtered_df[[area_col, indicator]].dropna()
 
-
+fig, ax = plt.subplots()
 ax.bar(plot_df[area_col], plot_df[indicator])
-
+plt.xticks(rotation=90)
 ax.set_ylabel(indicator)
 st.pyplot(fig)
 
